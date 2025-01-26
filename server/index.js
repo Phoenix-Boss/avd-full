@@ -29,9 +29,9 @@ app.get('/token', (req, res) => {
         res.json({ token });
     } catch (error) {
         console.error('Error generating user token:', error);
-        res.status(500).send('Failed to generate token');
+        res.status(500).json({ error: 'Failed to generate token', details: error.message });
     }
-});
+})
 
 // Health Check Route
 app.get('/health', (req, res) => {
