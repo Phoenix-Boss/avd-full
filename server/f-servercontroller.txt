@@ -1,0 +1,126 @@
+const supabase = require('../config/database');
+
+const sendMessage = async (req, res) => {
+    const { senderId, receiverId, content, messageType } = req.body;
+
+    const { data, error } = await supabase
+        .from('messages')
+        .insert([{ sender: senderId, receiver: receiverId, content, message_type: messageType }])
+        .select();
+
+    if (error) return res.status(400).json({ error: 'Failed to send message', details: error.message });
+    res.status(201).json({ message: data[0] });
+};
+
+const getMessages = async (req, res) => {
+    const { userId, contactId } = req.query;
+
+    const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .or(`sender.eq.${userId},receiver.eq.${contactId}`);
+
+    if (error) return res.status(400).json({ error: 'Failed to retrieve messages', details: error.message });
+    res.json({ messages: data });
+};
+
+module.exports = { sendMessage, getMessages };
+
+
+const supabase = require('../config/database');
+
+const uploadMedia = async (req, res) => {
+    const { uploaderId, fileName, filePath, fileType, fileSize } = req.body;
+
+    const { data, error } = await supabase
+        .from('media')
+        .insert([{ uploader: uploaderId, file_name: fileName, file_path: filePath, file_type: fileType, file_size: fileSize }])
+        .select();
+
+    if (error) return res.status(400).json({ error: 'Media upload failed', details: error.message });
+    res.status(201).json({ media: data[0] });
+};
+
+const getMedia = async (req, res) => {
+    const { id } = req.params;
+
+    const { data, error } = await supabase
+        .from('media')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+    if (error || !data) return res.status(404).json({ error: 'Media file not found' });
+    res.json({ media: data });
+};
+
+module.exports = { uploadMedia, getMedia };
+
+
+const supabase = require('../config/database');
+
+const syncContacts = async (req, res) => {
+    const { contacts } = req.body;
+
+    const { data, error } = await supabase
+        .from('users')
+        .select('phone_number, display_name')
+        .in('phone_number', contacts);
+
+    if (error) return res.status(400).json({ error: 'Failed to sync contacts', details: error.message });
+    res.json({ registeredContacts: data });
+};
+
+const blockContact = async (req, res) => {
+    const { userId, blockPhoneNumber } = req.body;
+
+    const { data: user, error } = await supabase
+        .from('users')
+        .select('blocked_contacts')
+        .eq('id', userId)
+        .single();
+
+    if (error || !user) return res.status(404).json({ error: 'User not found' });
+
+    const updatedBlockedContacts = [...user.blocked_contacts, blockPhoneNumber];
+
+    const { error: updateError } = await supabase
+        .from('users')
+        .update({ blocked_contacts: updatedBlockedContacts })
+        .eq('id', userId);
+
+    if (updateError) return res.status(400).json({ error: 'Failed to block contact', details: updateError.message });
+    res.json({ message: 'Contact blocked successfully' });
+};
+
+module.exports = { syncContacts, blockContact };
+
+
+const supabase = require('../config/database');
+
+const registerUser = async (req, res) => {
+    const { phoneNumber, displayName } = req.body;
+
+    const { data, error } = await supabase
+        .from('users')
+        .insert([{ phone_number: phoneNumber, display_name: displayName }])
+        .select();
+
+    if (error) return res.status(400).json({ error: 'User registration failed', details: error.message });
+    res.status(201).json({ user: data[0] });
+};
+
+const loginUser = async (req, res) => {
+    const { phoneNumber } = req.body;
+
+    const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('phone_number', phoneNumber)
+        .single();
+
+    if (error || !data) return res.status(404).json({ error: 'User not found' });
+    res.json({ user: data });
+};
+
+module.exports = { registerUser, loginUser };
