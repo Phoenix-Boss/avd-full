@@ -1,5 +1,5 @@
 const { StreamClient } = require('@stream-io/node-sdk');
-const supabase = require('../config/supabase'); // Supabase client instance
+const supabase = require('../config/database'); // Supabase client instance
 require('dotenv').config(); // Load environment variables
 
 // Stream API keys from the environment variables
