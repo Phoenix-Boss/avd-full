@@ -82,6 +82,41 @@ const loginUser = async (req, res) => {
 };
 
 /**
+ * Get the current logged-in user details.
+ * Expects a query parameter `email` or `phone` to identify the user.
+ * @param {Request} req - Express request object.
+ * @param {Response} res - Express response object.
+ */
+const getCurrentUser = async (req, res) => {
+    const { email, phone } = req.query;
+
+    try {
+        if (!email && !phone) {
+            return res.status(400).json({ error: 'Email or phone number is required' });
+        }
+
+        // Fetch user from Supabase
+        const query = supabase.from('users').select('*').limit(1);
+        if (email) {
+            query.eq('email', email);
+        } else if (phone) {
+            query.eq('phone_number', phone);
+        }
+
+        const { data: user, error } = await query.single();
+
+        if (error || !user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.json({ user }); // Respond with user details
+    } catch (error) {
+        console.error('Error fetching current user:', error.message);
+        res.status(500).json({ error: 'Failed to fetch current user', details: error.message });
+    }
+};
+
+/**
  * Validate the provided password against the stored encrypted password.
  * @param {string} password - The plain text password.
  * @param {string} encryptedPassword - The hashed password stored in the database.
@@ -93,4 +128,4 @@ const validatePassword = (password, encryptedPassword) => {
     return bcrypt.compareSync(password, encryptedPassword);
 };
 
-module.exports = { loginUser };
+module.exports = { loginUser, getCurrentUser };
