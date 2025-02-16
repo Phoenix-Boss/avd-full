@@ -1,73 +1,110 @@
-import React, {useEffect} from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import {
-    Call, 
-    StreamCall,
-    useStreamVideoClient,
-    CallingState,
-    CallContent,
-} from '@stream-io/video-react-native-sdk';
+import React, { useEffect, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import  ZegoExpressEngine  from "zego-express-engine-reactnative";
 
 type Props = { goToHomeScreen: () => void; callId: string };
 
 export const AudioCallScreen = ({ goToHomeScreen, callId }: Props) => {
-    const [call, setCall] = React.useState<Call | null>(null);
-    const client = useStreamVideoClient();
+  const [engine, setEngine] = useState<any | null>(null);
+  const [isInCall, setIsInCall] = useState(false);
 
   useEffect(() => {
-    const _call = client?.call('default', callId);
-    _call?.join({ 
-        create: true})
-      .then(() => setCall(_call));
-  }, [client, callId]);
+    const initializeZegoCloud = async () => {
+      try {
+        // Initialize ZegoCloud engine
+        const zegoEngine = ZegoExpressEngine.create(
+          parseInt(process.env.EXPO_PUBLIC_ZEGOCLOUD_APP_ID, 10),
+          process.env.EXPO_PUBLIC_ZEGOCLOUD_SERVER_SECRET
+        );
+        setEngine(zegoEngine);
 
-  useEffect(() => {
-    return () => {
-      if (call?.state.callingState !== CallingState.LEFT) {
-        call?.leave();
+        // Login to the room
+        await zegoEngine.loginRoom("default_room", callId, "");
+        setIsInCall(true);
+
+        // Start audio publishing
+        zegoEngine.startPublishingStream();
+      } catch (error) {
+        console.error("Error initializing ZegoCloud:", error);
       }
     };
-  }, [call]);
 
-  call?.update({
-    settings_override: {
-      video: {
-        camera_default_on: false,
-        target_resolution: {
-          height: 240, 
-          width: 240,
-        },
+    initializeZegoCloud();
+
+    return () => {
+      if (engine && isInCall) {
+        // Leave the room when the component unmounts
+        engine.logoutRoom("default_room");
       }
-    }
-  })
+    };
+  }, [callId]);
 
-    if (!call) {
-      return (
-        <View style={styles.container}>
-          <Text style={styles.text}>Joining call...</Text>
-        </View>
-      );
+  useEffect(() => {
+    if (engine) {
+      // Configure audio settings
+      engine.muteMicrophone(false); // Enable microphone by default
     }
-  return (
-    <StreamCall call={call}>
+  }, [engine]);
+
+  if (!engine || !isInCall) {
+    return (
       <View style={styles.container}>
-        <CallContent onHangupCallHandler={goToHomeScreen}/>
+        <Text style={styles.text}>Joining call...</Text>
       </View>
-    </StreamCall>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.text}>Audio Call in Progress</Text>
+      <View style={styles.controlsContainer}>
+        <TouchableOpacity
+          style={styles.hangupButton}
+          onPress={() => {
+            if (engine) {
+              engine.stopPublishingStream();
+              engine.logoutRoom("default_room");
+              setIsInCall(false);
+              goToHomeScreen();
+            }
+          }}
+        >
+          <Text style={styles.buttonText}>Hang Up</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    backgroundColor: 'white',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "white",
   },
   text: {
-    color: 'black',
+    color: "black",
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 20,
-    textAlign: 'center',
+    textAlign: "center",
+  },
+  controlsContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 20,
+  },
+  hangupButton: {
+    backgroundColor: "#FF0000",
+    padding: 15,
+    borderRadius: 50,
+    width: 150,
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
   },
 });
